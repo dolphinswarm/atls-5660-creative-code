@@ -153,3 +153,7 @@ Desktop.ini
 # TouchDesigner import cache and device SDK logs
 **/TDImportCache/
 **/Log/
+
+# Python bytecode cache
+__pycache__/
+*.pyc
