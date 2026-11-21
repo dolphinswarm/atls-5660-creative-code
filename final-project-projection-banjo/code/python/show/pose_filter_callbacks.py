@@ -119,6 +119,28 @@ def _head_diameter():
     return d
 
 
+def _nudge_axes():
+    """Unit vectors in the head plane (banjo-local): toward the neck, toward the arm rest."""
+    t = parent.Project.op('dot_layout')
+    key = t.text if t is not None else ''
+    if _s.get('nudge_key') == key and _s.get('nudge_axes') is not None:
+        return _s['nudge_axes']
+    neck, arm = np.array([-0.38, -0.92]), np.array([0.92, -0.38])
+    try:
+        rows = {t[r, 0].val: (float(t[r, 1]), float(t[r, 2])) for r in range(1, t.numRows)}
+        if 'peg' in rows:
+            neck = np.array(rows['peg'])
+            neck = neck / np.linalg.norm(neck)
+            arm = np.array([-neck[1], neck[0]])
+            a = [np.array(v) for k, v in rows.items() if k.startswith('arm')]
+            if a and np.dot(np.mean(a, axis=0), arm) < 0:
+                arm = -arm
+    except Exception:
+        pass
+    _s['nudge_axes'], _s['nudge_key'] = (neck, arm), key
+    return neck, arm
+
+
 def _sim_pose(t):
     """A gently swaying banjo ~1.3 m in front of the projector."""
     show = parent.Show
@@ -240,6 +262,12 @@ def onCook(scriptOp):
     else:
         p = np.zeros(3)
         R = np.eye(3)
+
+    # manual nudge (cm) in the banjo's own frame, so it stays put however the banjo is held
+    if _s['have'] and not simulate:
+        neck, arm = _nudge_axes()
+        off2 = (neck * float(show.par.Nudgeneck) + arm * float(show.par.Nudgearm)) / 100.0
+        p = p + R @ np.array([off2[0], off2[1], 0.0])
 
     diam = _head_diameter() * float(show.par.Headscale)
     M = np.eye(4)
